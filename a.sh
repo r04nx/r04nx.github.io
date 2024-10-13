@@ -83,7 +83,7 @@ if [ -z "$body" ]; then
 fi
 
 # Set API key and endpoint
-api_key="re_dSFUhTGY_6hNYMi4Uc33SfBBSfLY9Uotw"
+api_key="re_LR6N7VLC_CoNnmZ8vYkzSFL4rDJSmUJ89"
 url="https://api.resend.com/emails"
 
 # Upload file using file.io and get the link if file exists
